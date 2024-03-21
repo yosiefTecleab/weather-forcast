@@ -6,9 +6,11 @@ import requests
 
 
 def fetch_weather_data(latitude, longitude):
+  
+  CLIENT_ID = "83ff59d0-b168-4e05-88af-70d2412d2799"
   url = f"https://api.met.no/weatherapi/locationforecast/2.0/compact?lat={latitude}&lon={longitude}"
   headers = {"User-Agent": "MyWeatherApp/1.0"}
-  response = requests.get(url, auth=(CLIENT_ID:CLIENT_ID, ''), headers=headers)
+  response = requests.get(url, auth=(CLIENT_ID, ''), headers=headers)
   
   if response.status_code == 200:
     return response.json()
