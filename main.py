@@ -6,12 +6,12 @@ import requests
 
 
 def fetch_weather_data(latitude, longitude):
-  
+
   CLIENT_ID = "83ff59d0-b168-4e05-88af-70d2412d2799"
   url = f"https://api.met.no/weatherapi/locationforecast/2.0/compact?lat={latitude}&lon={longitude}"
   headers = {"User-Agent": "MyWeatherApp/1.0"}
   response = requests.get(url, auth=(CLIENT_ID, ''), headers=headers)
-  
+
   if response.status_code == 200:
     return response.json()
   else:
@@ -27,6 +27,7 @@ def parse_weather_data(data):
     wind_direction = forecast['data']['instant']['details'][
         'wind_from_direction']
     symbol_code = forecast['data']['next_1_hours']['summary']['symbol_code']
+    
     forecasts.append({
         'Tid': time,
         'Temperatur (°C)': temperature,
@@ -35,6 +36,35 @@ def parse_weather_data(data):
         'Værforhold': symbol_code
     })
   return forecasts
+
+
+def average_parse_weather_data(data):
+  daily_forecasts = {}
+  for forecast in data['properties']['timeseries']:
+    time = datetime.fromisoformat(forecast['time'].rstrip('Z'))
+    date = time.date()
+    temperature = forecast['data']['instant']['details']['air_temperature']
+    wind_speed = forecast['data']['instant']['details']['wind_speed']
+    if date in daily_forecasts:
+      daily_forecasts[date]['temperature'].append(temperature)
+      daily_forecasts[date]['wind_speed'].append(wind_speed)
+    else:
+      daily_forecasts[date] = {
+          'temperature': [temperature],
+          'wind_speed': [wind_speed]
+      }
+  daily_averages = []
+  for date, values in daily_forecasts.items():
+    daily_average_temperature = round(
+        sum(values['temperature']) / len(values['temperature']), 1)
+    daily_average_wind_speed = round(
+        sum(values['wind_speed']) / len(values['wind_speed']), 1)
+    daily_averages.append({
+        'Dato': date,
+        'Temperature (°C)': daily_average_temperature,
+        'Vind (m/s)': daily_average_wind_speed
+    })
+  return daily_averages
 
 
 def get_lat_lon(city):
@@ -81,7 +111,8 @@ st.title("Værvarsel")
 
 city = st.text_input("Skriv inn navnet på byen eller stedet:")
 
-if st.button("Hente værdata"):
+#"Hente værdata"
+if st.button("Hent værdata for hele dagen"):
   latitude, longitude = get_lat_lon(city)
   if latitude is not None and longitude is not None:
     data = fetch_weather_data(latitude, longitude)
@@ -95,6 +126,21 @@ if st.button("Hente værdata"):
       #   weather_icon = get_weather_icon(row['Symbol Code'])
       #  st.image(weather_icon, width=50)
       st.dataframe(df.set_index('Tid'))
+    else:
+      st.error("Failed to fetch weather data.")
+  else:
+    st.error("Location not found.")
+
+if st.button("Hent værdata for neste 7 dager"):
+  latitude, longitude = get_lat_lon(city)
+  if latitude is not None and longitude is not None:
+    data = fetch_weather_data(latitude, longitude)
+    if data:
+      daily_forecasts = average_parse_weather_data(data)
+      df = pd.DataFrame(daily_forecasts)
+      df.set_index('Dato', inplace=True)
+      st.write(f"Daglig Være i {city}")
+      st.dataframe(df)
     else:
       st.error("Failed to fetch weather data.")
   else:
