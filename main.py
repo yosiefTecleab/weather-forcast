@@ -3,13 +3,14 @@ import pandas as pd
 from datetime import datetime, timedelta
 from geopy.geocoders import Nominatim
 import requests
+import csv
 
 
 def fetch_weather_data(latitude, longitude):
 
   CLIENT_ID = "83ff59d0-b168-4e05-88af-70d2412d2799"
   url = f"https://api.met.no/weatherapi/locationforecast/2.0/compact?lat={latitude}&lon={longitude}"
-  headers = {"User-Agent": "MyWeatherApp/1.0"}
+  headers = {"User-Agent": "Weather service"}
   response = requests.get(url, auth=(CLIENT_ID, ''), headers=headers)
 
   if response.status_code == 200:
@@ -20,6 +21,7 @@ def fetch_weather_data(latitude, longitude):
 
 def parse_weather_data(data):
   forecasts = []
+  weather_descr = weather_description('legend_translate.csv')
   for forecast in data['properties']['timeseries'][:24]:
     time = datetime.fromisoformat(forecast['time'].rstrip('Z'))
     temperature = forecast['data']['instant']['details']['air_temperature']
@@ -27,13 +29,21 @@ def parse_weather_data(data):
     wind_direction = forecast['data']['instant']['details'][
         'wind_from_direction']
     symbol_code = forecast['data']['next_1_hours']['summary']['symbol_code']
-    
+
     forecasts.append({
-        'Tid': time,
-        'Temperatur (°C)': temperature,
-        'Vind (m/s)': wind_speed,
-        'Vindkast': wind_direction,
-        'Værforhold': symbol_code
+        'Tid':
+        time,
+        'Temperatur (°C)':
+        temperature,
+        'Vind (m/s)':
+        wind_speed,
+        'Vindkast':
+        wind_direction,
+        'Værforhold':
+        weather_descr[str(symbol_code).split('_')[0]]
+        #'Værforhold': weather_descr[str(symbol_code)]
+
+        # 'Værforhold': symbol_code
     })
   return forecasts
 
@@ -105,6 +115,18 @@ def get_weather_icon(symbol_code):
       'clearsky_day.png')  # Default to unknown icon if symbol code not found
 
   return f"weather-icons/{icon_filename}"
+
+
+def weather_description(csv_file_path):
+
+  symbol_bokmal_dict = {}
+
+  with open(csv_file_path, mode='r', encoding='utf-8-sig') as file:
+    csv_reader = csv.DictReader(file)
+    for row in csv_reader:
+      symbol_bokmal_dict[row['Symbol_ID']] = row['Bokmål']
+
+  return symbol_bokmal_dict
 
 
 st.title("Værvarsel")
